@@ -6,7 +6,6 @@ from spade import wait_until_finished
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour
 from queue import Queue
-from semaforo_agent import SemaforoAgente
 
 #sudo service prosody start
 
@@ -154,7 +153,7 @@ def desenha_estrada(screen, cor):
             desenha_linha_tracejada_horizontal(screen, 0, y, 5)
 
 #Retorna uma lista com as coordenadas para todos os semaforos
-def calcula_coordenadas_semaforos(num_estradas, tamanho_semaforo, largura_janela, altura_janela):
+def calcula_coordenadas_semaforos():
     tamanho_preto_ = (largura - (num_linhas * tamanho_espessura)) // num_linhas
     tamanho_preto = tamanho_preto_ - 0.1 * tamanho_preto_
     tamanho_preto = int(tamanho_preto)
@@ -178,7 +177,7 @@ def calcula_coordenadas_semaforos(num_estradas, tamanho_semaforo, largura_janela
 
     coordenadas_ordenadas = sorted(coordenadas, key=lambda tupla: (tupla[1], tupla[0]))
     return coordenadas_ordenadas
-coordenadas_semaforos = calcula_coordenadas_semaforos(num_linhas, tamanho_semaforo, largura, altura)
+coordenadas_semaforos = calcula_coordenadas_semaforos()
 
 #Retorna uma lista com o indice dos semaforos na posicao cima
 def cima():
@@ -308,6 +307,31 @@ def desenha_carro(screen, carro, direcao):
         screen.blit(carro.direcao.direita, (carro.x, carro.y))
     if direcao == "baixo":
         screen.blit(carro.direcao.baixo, (carro.x, carro.y))
+
+def paragem_carro(direcao):
+    coordenadas=set()
+    if direcao=="cima":
+        coord = cima()
+        for c in coord:
+            y_coord = coordenadas_semaforos[c][1]
+            coordenadas.add(y_coord+tamanho_semaforo//2)
+    if direcao=="baixo":
+        coord = baixo()
+        for c in coord:
+            y_coord = coordenadas_semaforos[c][1]
+            coordenadas.add(y_coord-tamanho_semaforo//2)
+    if direcao=="direita":
+        coord = esquerda()
+        for c in coord:
+            x_coord = coordenadas_semaforos[c][0]
+            coordenadas.add(x_coord-tamanho_semaforo//2)
+    if direcao=="esquerda":
+        coord = direita()
+        for c in coord:
+            x_coord = coordenadas_semaforos[c][0]
+            coordenadas.add(x_coord+tamanho_semaforo//2)
+    coordenadas_ordenadas = sorted(coordenadas)
+    return coordenadas_ordenadas
 
 
 async def main():
