@@ -7,6 +7,9 @@ from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour
 from queue import Queue
 
+global screen
+
+
 #sudo service prosody start
 
 #Cores a serem usadas
@@ -116,28 +119,28 @@ def restricao(x):
     return areas_excluidas[x]
 
 # Desenha a linha tracejada na horizontal
-def desenha_linha_tracejada_horizontal(screen, x, y, tamanho_tracejado):
+def desenha_linha_tracejada_horizontal(x, y, tamanho_tracejado):
     while x < largura:
         if restricao(x):
             pygame.draw.line(screen, Cores.BLACK, (x, y), (x + tamanho_tracejado, y), 2)
         x += tamanho_tracejado * 3
 
 # Desenha a linha tracejada na vertical
-def desenha_linha_tracejada_vertical(screen, x, tamanho_tracejado):
+def desenha_linha_tracejada_vertical(x, tamanho_tracejado):
     y=0
     while y < altura:
         pygame.draw.line(screen, Cores.BLACK, (x, y), (x, y + tamanho_tracejado), 2)
         y += tamanho_tracejado * 3
 
 # Desenha a estrada
-def desenha_estrada(screen, cor):
+def desenha_estrada(cor):
     espessura_linha = largura // num_linhas
     for x in range(0, largura + 1, espessura_linha):
         pygame.draw.line(screen, cor, (x, 0), (x, altura), tamanho_espessura)
-        desenha_linha_tracejada_vertical(screen, x, 5)
+        desenha_linha_tracejada_vertical(x, 5)
         for y in range(0, altura + 1, espessura_linha):
             pygame.draw.line(screen, cor, (0, y), (largura, y), tamanho_espessura)
-            desenha_linha_tracejada_horizontal(screen, 0, y, 5)
+            desenha_linha_tracejada_horizontal(0, y, 5)
 
 #Retorna uma lista com o indice dos semaforos na posicao cima
 def cima():
@@ -241,7 +244,7 @@ def calcula_coordenadas_semaforos():
 coordenadas_semaforos = calcula_coordenadas_semaforos()
 
 #Desenha todos os semaforos
-def desenha_semaforos(screen, semaforo):
+def desenha_semaforos(semaforo):
     posicao = 0
     while posicao< len(coordenadas_semaforos):
         x,y = coordenadas_semaforos[posicao]
@@ -256,7 +259,7 @@ def desenha_semaforos(screen, semaforo):
         posicao +=1
 
 #Liga o semaforo da posicao pedida
-def liga_semaforo(screen, posicao, semaforo):
+def liga_semaforo(posicao, semaforo):
     x,y = coordenadas_semaforos[posicao]
     if posicao in cima():
         screen.blit(semaforo.direcao.cima, (x, y))
@@ -268,7 +271,7 @@ def liga_semaforo(screen, posicao, semaforo):
         screen.blit(semaforo.direcao.baixo, (x, y))
 
 #Desenha o carro no inicio da estrada pedida
-def inicia_carro(screen, carro, estrada, direcao):
+def inicia_carro(carro, estrada, direcao):
     tamanho_preto_ = (largura - (num_linhas*tamanho_espessura)) // num_linhas
     tamanho_preto1 = tamanho_preto_ - 0.3*tamanho_preto_
     tamanho_preto1 = int(tamanho_preto1)
@@ -292,7 +295,7 @@ def inicia_carro(screen, carro, estrada, direcao):
         carro.y = 0
 
 # Desenha o carro nas suas coordenadas
-def desenha_carro(screen, carro, direcao):
+def desenha_carro(carro, direcao):
     if direcao == "cima":
         screen.blit(carro.direcao.cima, (carro.x, carro.y))
     if direcao == "esquerda":
