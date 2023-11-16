@@ -9,7 +9,6 @@ from queue import Queue
 
 global screen
 
-
 #sudo service prosody start
 
 #Cores a serem usadas
@@ -38,9 +37,9 @@ class Semaforo():
 
 #Classe de um Veículo
 class Veiculo():
-    def __init__(self, x, y, tipo, direcao):
-        self.x = x
-        self.y = y
+    def __init__(self, tipo, direcao):
+        #self.x = x
+        #self.y = y
         self.tipo = tipo #Vê se é carro/ambulância
         self.direcao = direcao
 
@@ -92,10 +91,10 @@ carro_a = Direcao.download_imagens("blue", "carros", larg_carro, alt_carro)
 carro_p = Direcao.download_imagens("black", "carros", larg_carro, alt_carro)
 
 #Veículos
-x,y = 0, 0
-carro_vermelho = Veiculo(x, y, "carro", carro_v)
-carro_azul = Veiculo(x, y, "carro", carro_a)
-carro_preto = Veiculo(x, y, "carro", carro_p)
+#x,y = 0, 0
+carro_vermelho = Veiculo("carro", carro_v)
+carro_azul = Veiculo("carro", carro_a)
+carro_preto = Veiculo("carro", carro_p)
 
 # Restrição para a área onde desenhar o tracejado
 def restricao(x):
@@ -271,9 +270,9 @@ def liga_semaforo(posicao, semaforo):
         screen.blit(semaforo.direcao.baixo, (x, y))
 
 #Desenha o carro no inicio da estrada pedida
-def inicia_carro(carro, estrada, direcao):
+def inicia_carro(carro, estrada):
     tamanho_preto_ = (largura - (num_linhas*tamanho_espessura)) // num_linhas
-    tamanho_preto1 = tamanho_preto_ - 0.3*tamanho_preto_
+    tamanho_preto1 = tamanho_preto_ + 0.05*tamanho_preto_
     tamanho_preto1 = int(tamanho_preto1)
     tamanho_preto2 = tamanho_preto_ + 0.25*tamanho_preto_
     tamanho_preto2 = int(tamanho_preto2)
@@ -281,29 +280,33 @@ def inicia_carro(carro, estrada, direcao):
     tamanho_preto3 = int(tamanho_preto3)
     tamanho_preto4 = tamanho_preto_ - 0.1*tamanho_preto_
     tamanho_preto4 = int(tamanho_preto4)
-    if direcao == "cima":
+    if carro.direcao == "cima":
         carro.x = tamanho_espessura//10 + estrada*(tamanho_espessura+tamanho_preto_)
-        carro.y = altura - alt_carro
-    if direcao == "esquerda":
-        carro.x = largura - alt_carro
-        carro.y = tamanho_espessura//2 + tamanho_preto_ + estrada*(tamanho_espessura+tamanho_preto_)
-    if direcao == "direita":
-        carro.x = 0
-        carro.y = tamanho_espessura//2 + tamanho_preto3 + estrada*(tamanho_espessura+tamanho_preto_)
-    if direcao == "baixo":
+        carro.y = altura
+    if carro.direcao == "esquerda":
+        carro.x = largura
+        carro.y = tamanho_espessura//2 + tamanho_preto1 + estrada*(tamanho_espessura+tamanho_preto_)
+    if carro.direcao == "direita":
+        carro.x = -alt_carro
+        if estrada == 0:
+            carro.y = - alt_carro
+        else:
+            estrada -= 1
+            carro.y = tamanho_espessura//2 + tamanho_preto3 + estrada*(tamanho_espessura+tamanho_preto_)
+    if carro.direcao == "baixo":
         carro.x = tamanho_espessura//10 + tamanho_preto2 + estrada*(tamanho_espessura+tamanho_preto_)
-        carro.y = 0
+        carro.y = -alt_carro
 
 # Desenha o carro nas suas coordenadas
-def desenha_carro(carro, direcao):
-    if direcao == "cima":
-        screen.blit(carro.direcao.cima, (carro.x, carro.y))
-    if direcao == "esquerda":
-        screen.blit(carro.direcao.esquerda, (carro.x, carro.y))
-    if direcao == "direita":
-        screen.blit(carro.direcao.direita, (carro.x, carro.y))
-    if direcao == "baixo":
-        screen.blit(carro.direcao.baixo, (carro.x, carro.y))
+def desenha_carro(carro):
+    if carro.direcao == "cima":
+        screen.blit(carro.carro.direcao.cima, (carro.x, carro.y))
+    if carro.direcao == "esquerda":
+        screen.blit(carro.carro.direcao.esquerda, (carro.x, carro.y))
+    if carro.direcao == "direita":
+        screen.blit(carro.carro.direcao.direita, (carro.x, carro.y))
+    if carro.direcao == "baixo":
+        screen.blit(carro.carro.direcao.baixo, (carro.x, carro.y))
 
 # Lista de coordenadas onde o carro encontra semáforos
 def paragem_carro(direcao):
@@ -312,22 +315,22 @@ def paragem_carro(direcao):
         coord = cima()
         for c in coord:
             y_coord = coordenadas_semaforos[c][1]
-            coordenadas.add(int(y_coord+tamanho_semaforo//2))
+            coordenadas.add(int(y_coord+tamanho_semaforo//4))
     if direcao=="baixo":
         coord = baixo()
         for c in coord:
             y_coord = coordenadas_semaforos[c][1]
-            coordenadas.add(int(y_coord-tamanho_semaforo//2))
+            coordenadas.add(int(y_coord-tamanho_semaforo//4))
     if direcao=="direita":
         coord = esquerda()
         for c in coord:
             x_coord = coordenadas_semaforos[c][0]
-            coordenadas.add(int(x_coord-tamanho_semaforo//2))
+            coordenadas.add(int(x_coord-tamanho_semaforo//4))
     if direcao=="esquerda":
         coord = direita()
         for c in coord:
             x_coord = coordenadas_semaforos[c][0]
-            coordenadas.add(int(x_coord+tamanho_semaforo//2))
+            coordenadas.add(int(x_coord+tamanho_semaforo//4))
     coordenadas_ordenadas = sorted(coordenadas)
     return coordenadas_ordenadas
 
