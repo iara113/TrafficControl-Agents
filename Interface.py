@@ -270,7 +270,7 @@ def liga_semaforo(posicao, semaforo):
         screen.blit(semaforo.direcao.baixo, (x, y))
 
 #Desenha o carro no inicio da estrada pedida
-def inicia_carro(carro, estrada):
+def inicia_carro(carro):
     tamanho_preto_ = (largura - (num_linhas*tamanho_espessura)) // num_linhas
     tamanho_preto1 = tamanho_preto_ + 0.05*tamanho_preto_
     tamanho_preto1 = int(tamanho_preto1)
@@ -281,20 +281,20 @@ def inicia_carro(carro, estrada):
     tamanho_preto4 = tamanho_preto_ - 0.1*tamanho_preto_
     tamanho_preto4 = int(tamanho_preto4)
     if carro.direcao == "cima":
-        carro.x = tamanho_espessura//10 + estrada*(tamanho_espessura+tamanho_preto_)
+        carro.x = tamanho_espessura//10 + carro.estrada*(tamanho_espessura+tamanho_preto_)
         carro.y = altura
     if carro.direcao == "esquerda":
         carro.x = largura
-        carro.y = tamanho_espessura//2 + tamanho_preto1 + estrada*(tamanho_espessura+tamanho_preto_)
+        carro.y = tamanho_espessura//2 + tamanho_preto1 + carro.estrada*(tamanho_espessura+tamanho_preto_)
     if carro.direcao == "direita":
         carro.x = -alt_carro
-        if estrada == 0:
+        if carro.estrada == 0:
             carro.y = - alt_carro
         else:
-            estrada -= 1
-            carro.y = tamanho_espessura//2 + tamanho_preto3 + estrada*(tamanho_espessura+tamanho_preto_)
+            carro.estrada -= 1
+            carro.y = tamanho_espessura//2 + tamanho_preto3 + carro.estrada*(tamanho_espessura+tamanho_preto_)
     if carro.direcao == "baixo":
-        carro.x = tamanho_espessura//10 + tamanho_preto2 + estrada*(tamanho_espessura+tamanho_preto_)
+        carro.x = tamanho_espessura//10 + tamanho_preto2 + carro.estrada*(tamanho_espessura+tamanho_preto_)
         carro.y = -alt_carro
 
 # Desenha o carro nas suas coordenadas

@@ -14,6 +14,23 @@ import math
 import random
 import string
 
+class Street(Agent):
+    def __init__(self, jid, password, carros):
+        super().__init__(jid, password)
+        self.carros = carros
+
+    class MyBehav(CyclicBehaviour):
+        async def run(self):
+            for estrada in estradas:
+                if str(self.agent.jid) == str(estrada.jid):
+                    self.agent.carros = estrada.carros
+
+
+    async def setup(self):
+        self.my_behav = self.MyBehav()
+        self.add_behaviour(self.my_behav)
+
+
 #Agente semáforo
 class TrafficLightAgent(Agent):
     def __init__(self, jid, password, coordenadas, cor, posicao):
@@ -42,10 +59,10 @@ class TrafficLightAgent(Agent):
 
             Interface.liga_semaforo(self.agent.posicao, self.agent.cor)
             pygame.display.update()
-            await asyncio.sleep(0.1)  # Garante que o loop seja assíncrono
+            await asyncio.sleep(0)  # Garante que o loop seja assíncrono
 
 
-    class RecvBehav(OneShotBehaviour):
+    class RecvBehav(CyclicBehaviour):
         async def run(self):
             # Agora o semáforo está verde, pode responder
             msg = await self.receive(timeout=500)
@@ -79,21 +96,33 @@ class TrafficLightAgent(Agent):
 
 
 class CarAgent(Agent):
-    def __init__(self, jid, password, carro, direcao, x, y):
+    def __init__(self, jid, password, carro, direcao, x, y, estrada):
         super().__init__(jid, password)
         self.carro = carro
         self.direcao = direcao
         self.x = x
         self.y = y
+        self.estrada = estrada
 
     class MyBehav(CyclicBehaviour):
         async def run(self):
             if self.agent.x > Interface.largura\
             or self.agent.y > Interface.altura\
             or self.agent.x < - Interface.alt_carro or self.agent.y < - Interface.alt_carro:
+                veiculos_em_circulacao.remove(self.agent)
+                await self.agent.stop()
                 self.kill(exit_code=10)
                 return
             prev_x, prev_y = self.agent.x, self.agent.y
+            jid_estrada =  f"estrada_{self.agent.direcao}_{self.agent.estrada}@localhost"
+            for estrada in estradas:
+                if str(estrada.jid) == jid_estrada:
+                    print(len(estrada.carros))
+                    if len(estrada.carros)>1:
+                        print('estao na mesma estrada')
+                        for carro in estrada.carros:
+                            if parte_estrada(self.agent) == parte_estrada(carro):
+                                print('ESTAO NA MESMA PARTE')
             if ((self.agent.direcao == "cima" or self.agent.direcao == "baixo")and\
             self.agent.y in Interface.paragem_carro(self.agent.direcao)) or\
             ((self.agent.direcao == "direita" or self.agent.direcao == "esquerda") and\
@@ -128,6 +157,19 @@ class CarAgent(Agent):
         self.my_behav = self.MyBehav()
         self.add_behaviour(self.my_behav)
 
+def parte_estrada(carro):
+    if carro.direcao == "cima" or carro.direcao == "baixo":
+        limites = [i * Interface.altura / Interface.num_linhas for i in range(Interface.num_linhas)]
+        for parte, limite in enumerate(limites, start=1):
+            if 0 < carro.y <= limite:
+                return parte
+    elif carro.direcao == "direita" or carro.direcao == "esquerda":
+        limites = [i * Interface.largura / Interface.num_linhas for i in range(Interface.num_linhas)]
+        for parte, limite in enumerate(limites, start=1):
+            if 0 < carro.x <= limite:
+                return parte
+
+
 #Identifica a posicao do semáforo onde o carro está parado
 def identifica_semaforo(x, y, direcao):
     lista_coord = []
@@ -143,7 +185,6 @@ def identifica_semaforo(x, y, direcao):
                 lista_y.append(i)
                 lista_coord.append(Interface.coordenadas_semaforos[i])
         distancia_min_x = abs(lista_coord[0][0] - x)
-        print(lista_y)
         pos = lista_y[0]
         for i in range(len(lista_coord)):
             distancia = abs(lista_coord[i][0] - x)
@@ -162,7 +203,6 @@ def identifica_semaforo(x, y, direcao):
                 lista_x.append(i)
                 lista_coord.append(Interface.coordenadas_semaforos[i])
         distancia_min_y = abs(lista_coord[0][1] - y)
-        print(lista_x)
         pos = lista_x[0]
         for i in range(len(lista_coord)):
             distancia = abs(lista_coord[i][1] - y)
@@ -182,31 +222,34 @@ async def gera_veiculos():
         carros_interface = [Interface.carro_vermelho, Interface.carro_azul, Interface.carro_preto]
         password = "password"
         direcoes = ["cima", "baixo", "direita", "esquerda"]
-
-        num_carros = random.randint(1, 6)
+        combinacoes_utilizadas = set()
+        num_carros = random.randint(Interface.num_linhas, 2*Interface.num_linhas)
         while num_carros > 0:
             carro_interface = random.choice(carros_interface)
             direcao = random.choice(direcoes)
-            estrada = random.randint(0, Interface.num_linhas - 1)
+            pos_estrada = random.randint(0, Interface.num_linhas - 1)
 
             # Verifica se a combinação estrada-direcao já está em uso
-            combinacao_atual = (estrada, direcao)
+            combinacao_atual = (pos_estrada, direcao)
             if combinacao_atual not in combinacoes_utilizadas:
                 jid = gerar_combinacao_aleatoria(combinacoes_utilizadas)
                 combinacoes_utilizadas.add(combinacao_atual)
 
                 # Agentes
                 x, y = 0, 0
-                carro = CarAgent(f"{jid}@localhost", password, carro_interface, direcao, x, y)
+                carro = CarAgent(f"{jid}@localhost", password, carro_interface, direcao, x, y, pos_estrada)
                 veiculos_em_circulacao.append(carro)
-                Interface.inicia_carro(carro, estrada)
+                Interface.inicia_carro(carro)
                 num_carros -= 1
                 Interface.desenha_carro(carro)
+                jid_estrada = f"estrada_{direcao}_{pos_estrada}@localhost"
+                for estrada in estradas:
+                    if str(estrada.jid) == jid_estrada:
+                        estrada.carros.append(carro)
                 pygame.display.update()
-        print(combinacoes_utilizadas)
         await agentes()
         pygame.display.update()
-        await asyncio.sleep(15)
+        await asyncio.sleep(5)
 
 #Inicia os agentes ao mesmo tempo e para-os
 async def agentes():
@@ -245,29 +288,63 @@ async def main():
     global veiculos_em_circulacao
     global veiculos_iniciados
     global combinacoes_utilizadas
+    #global combinacoes_utilizadas
     veiculos_iniciados = []
     veiculos_em_circulacao = []
-    combinacoes_utilizadas = set()
-    '''
+
+    global estradas
+    estradas = []
+    for i in range(Interface.num_linhas):
+        jid = f"estrada_cima_{i}@localhost"
+        password = f"cima_{i}"
+        estrada = Street(jid, password, [])
+        estradas.append(estrada)
+    for i in range(Interface.num_linhas):
+        jid = f"estrada_baixo_{i}@localhost"
+        password = f"baixo_{i}"
+        estrada = Street(jid, password, [])
+        estradas.append(estrada)
+    for i in range(Interface.num_linhas):
+        jid = f"estrada_esquerda_{i}@localhost"
+        password = f"esquerda_{i}"
+        estrada = Street(jid, password, [])
+        estradas.append(estrada)
+    for i in range(Interface.num_linhas):
+        jid = f"estrada_direita_{i}@localhost"
+        password = f"direita_{i}"
+        estrada = Street(jid, password, [])
+        estradas.append(estrada)
+    for estrada in estradas:
+        await estrada.start()
+
     x = 0
     y = 0
-    carro1 = CarAgent("carro_vermelho@localhost", "red", Interface.carro_vermelho, "direita", x, y)
-    carro2 = CarAgent("carro_azul@localhost", "blue", Interface.carro_preto, "baixo", x, y)
+    carro1 = CarAgent("carro_vermelho@localhost", "red", Interface.carro_vermelho, "direita", x, y, 2)
+    carro2 = CarAgent("carro_azul@localhost", "blue", Interface.carro_preto, "direita", x, y, 2)
     #carro_preto = CarAgent("carro_preto@localhost", "black", Interface.carro_preto, "direita")
-    veiculos_em_circulacao = [carro1, carro2]
-
-    Interface.inicia_carro(carro1, 2)
+    veiculos_em_circulacao = [carro1]
+    jid_estrada = "estrada_direita_2@localhost"
+    Interface.inicia_carro(carro1)
+    Interface.inicia_carro(carro2)
+    for estrada in estradas:
+        if str(estrada.jid) == jid_estrada:
+            estrada.carros.append(carro1)
     #Interface.inicia_carro(Interface.carro_preto, 0, carro_preto.direcao)
     Interface.desenha_carro(carro1)
     #pygame.display.update()
-    await carro1.start()
-    await asyncio.sleep(10)
+    while True:
+        await agentes()
+        await asyncio.sleep(5)
+        veiculos_em_circulacao.append(carro2)
+        for estrada in estradas:
+            if str(estrada.jid) == jid_estrada:
+                estrada.carros.append(carro2)
+        await agentes()
 
-    Interface.inicia_carro(carro2, 2)
-    Interface.desenha_carro(carro2)
-    pygame.display.update()'''
+        #Interface.desenha_carro(carro2)
+        pygame.display.update()
 
-    await gera_veiculos()
+    #await gera_veiculos()
 
     # Loop principal
     running = True
