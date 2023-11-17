@@ -291,8 +291,9 @@ def inicia_carro(carro):
         if carro.estrada == 0:
             carro.y = - alt_carro
         else:
-            carro.estrada -= 1
-            carro.y = tamanho_espessura//2 + tamanho_preto3 + carro.estrada*(tamanho_espessura+tamanho_preto_)
+            estrada = carro.estrada
+            estrada -= 1
+            carro.y = tamanho_espessura//2 + tamanho_preto3 + estrada*(tamanho_espessura+tamanho_preto_)
     if carro.direcao == "baixo":
         carro.x = tamanho_espessura//10 + tamanho_preto2 + carro.estrada*(tamanho_espessura+tamanho_preto_)
         carro.y = -alt_carro
