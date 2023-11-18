@@ -309,7 +309,7 @@ def gerar_combinacao_aleatoria():
 #Gera veiculos aleatoriamente
 async def gera_veiculos():
     while True:
-        carros_interface = [Interface.carro_vermelho, Interface.carro_azul, Interface.carro_preto]
+        carros_interface = [Interface.carro_vermelho, Interface.carro_azul, Interface.carro_preto, Interface.carro_verde, Interface.ambulancia]
         password = "password"
         direcoes = ["cima", "baixo", "direita", "esquerda"]
         combinacoes_utilizadas = []
@@ -432,10 +432,12 @@ def pode_iniciar(carro):
     for estrada in estradas:
         if str(estrada.jid) == estrada_verificar:
             for c in estrada.carros:
+                num = Interface.num_linhas - carro.estrada
                 if ((carro.direcao == "esquerda" or carro.direcao == "baixo")\
                 and( parte_estrada(c) == carro.estrada or parte_estrada(c) == carro.estrada+1)) or\
                 ((carro.direcao == "cima" or carro.direcao == "direita")\
-                and (parte_estrada(c)+1 == carro.estrada or parte_estrada(c)+2 == carro.estrada)):
+                and (parte_estrada(c) == num or\
+                     parte_estrada(c) == num-1)):
                     return False
     return True
 
@@ -494,8 +496,8 @@ async def main():
     limites_esquerda = limites("esquerda")
 
     '''x, y = 0, 0
-    carro1 = CarroAgente("vermelho@localhost", "red", Interface.carro_vermelho, "direita", x, y, 0)
-    carro2 = CarroAgente("preto@localhost", "black", Interface.carro_preto, "baixo", x, y, 0)
+    carro1 = CarroAgente("vermelho@localhost", "red", Interface.carro_vermelho, "esquerda", x, y, 2)
+    carro2 = CarroAgente("preto@localhost", "black", Interface.carro_preto, "cima", x, y, 2)
     carro3 = CarroAgente("azul@localhost", "blue", Interface.carro_azul, "baixo", x, y, 1)
     veiculos_em_circulacao.add(carro1)
     jid_estrada = "estrada_direita_2@localhost"
@@ -512,15 +514,16 @@ async def main():
                 break
         await agentes()
         #asyncio.create_task(verifica(carro1))
-        await asyncio.sleep(3)
-        if pode_iniciar(carro2):
-            veiculos_em_circulacao.add(carro2)
-            jid_estrada = f"estrada_{carro2.direcao}_{carro2.estrada}@localhost"
-            for estrada in estradas:
-                if str(estrada.jid) == jid_estrada:
-                    estrada.carros.append(carro2)
-                    break
-            await agentes()
+        await asyncio.sleep(7)
+        while not pode_iniciar(carro2):
+            await asyncio.sleep(1)
+        veiculos_em_circulacao.add(carro2)
+        jid_estrada = f"estrada_{carro2.direcao}_{carro2.estrada}@localhost"
+        for estrada in estradas:
+            if str(estrada.jid) == jid_estrada:
+                estrada.carros.append(carro2)
+                break
+        await agentes()
         #await asyncio.sleep(3)
         #veiculos_em_circulacao.append(carro3)
         #await agentes()
