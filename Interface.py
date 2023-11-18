@@ -93,6 +93,7 @@ carro_v = Direcao.download_imagens("red", "carros", larg_carro, alt_carro)
 carro_a = Direcao.download_imagens("blue", "carros", larg_carro, alt_carro)
 carro_p = Direcao.download_imagens("black", "carros", larg_carro, alt_carro)
 carro_g = Direcao.download_imagens("green", "carros", larg_carro, alt_carro)
+mot = Direcao.download_imagens("motorcycle", "carros", larg_carro, alt_carro)
 ambul = Direcao.download_imagens("ambulance", "ambulancias", larg_carro, alt_carro)
 
 #Veículos
@@ -100,6 +101,7 @@ carro_vermelho = Veiculo("carro", carro_v)
 carro_azul = Veiculo("carro", carro_a)
 carro_preto = Veiculo("carro", carro_p)
 carro_verde = Veiculo("carro", carro_g)
+mota = Veiculo("carro", mot)
 ambulancia = Veiculo("ambulance", ambul)
 
 # Restrição para a área onde desenhar o tracejado

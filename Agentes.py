@@ -122,10 +122,11 @@ class CarroAgente(Agent):
             (self.agent.direcao=="baixo" and self.agent.y == veiculo_frente.y - Interface.alt_carro - 0.1*Interface.alt_carro)):
                 self.agent.estado = 0
                 veiculo_frente.anterior = self.agent
-            if ((self.agent.direcao == "cima" or self.agent.direcao == "baixo")and\
+            if (((self.agent.direcao == "cima" or self.agent.direcao == "baixo")and\
             self.agent.y in Interface.paragem_carro(self.agent.direcao)) or\
             ((self.agent.direcao == "direita" or self.agent.direcao == "esquerda") and\
-            self.agent.x in Interface.paragem_carro(self.agent.direcao)):
+            self.agent.x in Interface.paragem_carro(self.agent.direcao))) and\
+            (self.agent.carro.tipo != "ambulance" or ambulancia_para(self.agent)):
                     self.agent.estado = 0
                     semaforo = identifica_semaforo(self.agent.x, self.agent.y, self.agent.direcao)
                     msg = Message(to=f"semaforo_{semaforo}@localhost")
@@ -193,7 +194,7 @@ class CentralAgente(Agent):
         self.my_behav = self.MyBehav()
         self.add_behaviour(self.my_behav)
 
-
+#Limites para cada parte da estrada
 def limites(direcao):
     limites_set = set()
     for i in range(len(Interface.coordenadas_semaforos)):
@@ -209,6 +210,7 @@ def limites(direcao):
     limites_sorted = sorted(list(limites_set), reverse=(direcao in ["cima", "esquerda"]))
     return limites_sorted
 
+#Retorna a parte da estrada onde o carro se encontra
 def parte_estrada(carro):
     if carro.direcao == "cima":
         for limite in limites_cima:
@@ -228,6 +230,7 @@ def parte_estrada(carro):
                 return limites_esquerda.index(limite)
     return Interface.num_linhas
 
+#Se tiver algum veiculo à frente do carro, retorna qual é
 def veiculo_a_frente(carro):
     jid_estrada = f"estrada_{carro.direcao}_{carro.estrada}@localhost"
     possiveis = []
@@ -254,6 +257,17 @@ def veiculo_a_frente(carro):
         return carro_a_frente
 
     return None
+
+#retorna true se a ambulancia tiver que parar porque vêm carros do lado
+def ambulancia_para(ambulancia):
+    if ambulancia.direcao == "direita" or ambulancia.direcao == "esquerda":
+        jid_estrada1= f"estrada_cima_{ambulancia.estrada - 1}@localhost"
+        jid_estrada2= f"estrada_baixo_{ambulancia.estrada}@localhost"
+    if ambulancia.direcao == "cima" or ambulancia.direcao == "baixo":
+        jid_estrada1= f"estrada_esquerda_{ambulancia.estrada - 1}@localhost"
+        jid_estrada2= f"estrada_direita_{ambulancia.estrada}@localhost"
+    '''(...)'''
+    return False
 
 
 #Identifica a posicao do semáforo onde o carro está parado
@@ -309,13 +323,14 @@ def gerar_combinacao_aleatoria():
 #Gera veiculos aleatoriamente
 async def gera_veiculos():
     while True:
-        carros_interface = [Interface.carro_vermelho, Interface.carro_azul, Interface.carro_preto, Interface.carro_verde, Interface.ambulancia]
+        veiculos_interface = [Interface.carro_vermelho, Interface.carro_azul, Interface.carro_preto,\
+                            Interface.carro_verde, Interface.mota, Interface.ambulancia]
         password = "password"
         direcoes = ["cima", "baixo", "direita", "esquerda"]
         combinacoes_utilizadas = []
         num_carros = random.randint(Interface.num_linhas, 2*Interface.num_linhas)
         while num_carros > 0:
-            carro_interface = random.choice(carros_interface)
+            carro_interface = random.choice(veiculos_interface)
             direcao = random.choice(direcoes)
             pos_estrada = random.randint(0, Interface.num_linhas - 1)
             # Verifica se a combinação estrada-direcao já está em uso
