@@ -6,6 +6,7 @@ from spade import wait_until_finished
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour
 from queue import Queue
+import math
 
 global screen
 
@@ -38,8 +39,6 @@ class Semaforo():
 #Classe de um Veículo
 class Veiculo():
     def __init__(self, tipo, direcao):
-        #self.x = x
-        #self.y = y
         self.tipo = tipo #Vê se é carro/ambulância
         self.direcao = direcao
 
@@ -70,6 +69,10 @@ class Direcao():
         direcao.transforma(alt, larg)
         return direcao
 
+tamanho_seta = largura // (num_linhas*2)
+hospital = pygame.image.load(f"imagens/hospital.png")
+hospital = pygame.transform.scale(hospital, (tamanho_seta, tamanho_seta))
+
 # Direções para cada semaforo
 tamanho_semaforo = largura // (num_linhas*6)
 verde    = Direcao.download_imagens("green", "sinais", tamanho_semaforo, tamanho_semaforo)
@@ -89,12 +92,15 @@ alt_carro = largura // (num_linhas*5)
 carro_v = Direcao.download_imagens("red", "carros", larg_carro, alt_carro)
 carro_a = Direcao.download_imagens("blue", "carros", larg_carro, alt_carro)
 carro_p = Direcao.download_imagens("black", "carros", larg_carro, alt_carro)
+carro_g = Direcao.download_imagens("green", "carros", larg_carro, alt_carro)
+ambul = Direcao.download_imagens("ambulance", "ambulancias", larg_carro, alt_carro)
 
 #Veículos
-#x,y = 0, 0
 carro_vermelho = Veiculo("carro", carro_v)
 carro_azul = Veiculo("carro", carro_a)
 carro_preto = Veiculo("carro", carro_p)
+carro_verde = Veiculo("carro", carro_g)
+ambulancia = Veiculo("ambulance", ambul)
 
 # Restrição para a área onde desenhar o tracejado
 def restricao(x):
@@ -140,6 +146,7 @@ def desenha_estrada(cor):
         for y in range(0, altura + 1, espessura_linha):
             pygame.draw.line(screen, cor, (0, y), (largura, y), tamanho_espessura)
             desenha_linha_tracejada_horizontal(0, y, 5)
+
 
 #Retorna uma lista com o indice dos semaforos na posicao cima
 def cima():
@@ -242,6 +249,11 @@ def calcula_coordenadas_semaforos():
 # Lista com todas as coordenadas dos semáforos
 coordenadas_semaforos = calcula_coordenadas_semaforos()
 
+def desenha_hospital():
+    tamanho_preto = (largura - (num_linhas*tamanho_espessura)) // num_linhas
+    for x in range(int(tamanho_espessura-0.2*tamanho_espessura), largura, tamanho_preto+tamanho_espessura):
+        screen.blit(hospital, (x, tamanho_espessura//4))
+
 #Desenha todos os semaforos
 def desenha_semaforos(semaforo):
     posicao = 0
@@ -288,12 +300,9 @@ def inicia_carro(carro):
         carro.y = tamanho_espessura//2 + tamanho_preto1 + carro.estrada*(tamanho_espessura+tamanho_preto_)
     if carro.direcao == "direita":
         carro.x = -alt_carro
-        if carro.estrada == 0:
-            carro.y = - alt_carro
-        else:
-            estrada = carro.estrada
-            estrada -= 1
-            carro.y = tamanho_espessura//2 + tamanho_preto3 + estrada*(tamanho_espessura+tamanho_preto_)
+        estrada = carro.estrada
+        estrada -= 1
+        carro.y = tamanho_espessura//2 + tamanho_preto3 + estrada*(tamanho_espessura+tamanho_preto_)
     if carro.direcao == "baixo":
         carro.x = tamanho_espessura//10 + tamanho_preto2 + carro.estrada*(tamanho_espessura+tamanho_preto_)
         carro.y = -alt_carro
@@ -335,20 +344,19 @@ def paragem_carro(direcao):
     coordenadas_ordenadas = sorted(coordenadas)
     return coordenadas_ordenadas
 
-'''
+
 async def main():
     # Configurações iniciais
     pygame.init()
+    global screen
     screen = pygame.display.set_mode((largura, altura))
     pygame.display.set_caption("Controle de Tráfego")
     # Limpar a tela
     screen.fill(Cores.BLACK)
 
-    desenha_estrada(screen, Cores.GREY)
-    desenha_semaforos(screen, semaforo_cinza)
-    liga_semaforo(screen, 10, semaforo_verde)
-    liga_semaforo(screen, 17, semaforo_amarelo)
-    liga_semaforo(screen, 5, semaforo_vermelho)
+    desenha_estrada(Cores.GREY)
+    desenha_semaforos(semaforo_cinza)
+    desenha_hospital()
     pygame.display.update()
 
     # Loop principal
@@ -358,11 +366,5 @@ async def main():
             if event.type == pygame.QUIT:
                 running = False
 
-        #inicia_carro(screen, carro_vermelho, 1, "direita")
-        #desenha_carro(screen, carro_vermelho, "direita")
-        #desenha_carro(screen, carro_preto, 1, "esquerda")
-        #desenha_carro(screen, carro_azul, 0, "cima")
-
 if __name__ == "__main__":
     spade.run(main())
-'''
