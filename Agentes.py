@@ -19,6 +19,35 @@ class Ambiente():
         self.jid = jid
         self.carros = carros if carros is not None else []
 
+class CentralAgente(Agent):
+    def __init__(self, jid, password):
+        super().__init__(jid, password)
+
+    class MensagemSemaforo(CyclicBehaviour):
+        async def run(self):
+            await asyncio.sleep(10)
+            for semaforo in semaforos:
+                # Muda para verde
+                if semaforo.cor == Interface.semaforo_vermelho:
+                    msg = Message(to= str(semaforo.jid))
+                    msg.set_metadata("performative", "inform")
+                    msg.body = f"{str(semaforo.jid)}_verde"
+                    await self.send(msg)
+
+                # Muda para amarelo
+                elif semaforo.cor == Interface.semaforo_verde:
+                    msg = Message(to= str(semaforo.jid))
+                    msg.set_metadata("performative", "inform")
+                    msg.body = f"{str(semaforo.jid)}_amarelo"
+                    await self.send(msg)
+
+    async def setup(self):
+        print("{} começou".format(str(self.jid)))
+        template = Template()
+        template.set_metadata("performative", "inform")
+        c = self.MensagemSemaforo()
+        self.add_behaviour(c, template)
+
 #Agente semáforo
 class SemaforoAgente(Agent):
     def __init__(self, jid, password, coordenadas, cor, posicao):
@@ -30,79 +59,53 @@ class SemaforoAgente(Agent):
 
     class MensagemCentral(CyclicBehaviour):
         async def run(self):
-            Interface.liga_semaforo(self.agent.posicao, self.agent.cor)
-            pygame.display.update()
-            # Muda para verde
-            if self.agent.cor == Interface.semaforo_vermelho:
-                await asyncio.sleep(10)
-                self.agent.cor = Interface.semaforo_verde
+            #Recebe mensagem da central
+            reply = await self.receive(timeout=100)
 
-            # Muda para amarelo
-            elif self.agent.cor == Interface.semaforo_verde:
-                await asyncio.sleep(10)
+            while not str(reply.body).startswith(str(self.agent.jid)):
+                reply = await self.receive(timeout=100)
+
+            cor = reply.body.split("_")[-1]
+            print(f"Mudar o semaforo {str(self.agent.jid)} para a cor: {cor}")
+            if cor=="amarelo":
                 self.agent.cor = Interface.semaforo_amarelo
-
-            # Muda para vermelho
-            elif self.agent.cor == Interface.semaforo_amarelo:
+                Interface.liga_semaforo(self.agent.posicao, self.agent.cor)
                 await asyncio.sleep(2)
                 self.agent.cor = Interface.semaforo_vermelho
+                Interface.liga_semaforo(self.agent.posicao, self.agent.cor)
+            if cor=="verde":
+                self.agent.cor = Interface.semaforo_verde
+                Interface.liga_semaforo(self.agent.posicao, self.agent.cor)
 
-            await asyncio.sleep(0)  # Garante que o loop seja assíncrono
 
-
-    class RecvBehav(CyclicBehaviour):
+    class RecebeCarros(CyclicBehaviour):
         async def run(self):
             # Agora o semáforo está verde, pode responder
             msg = await self.receive(timeout=500)
+
             #Só recebe mensagens de carros
-            while msg.body != str(self.agent.posicao) and not msg.body.startswith("estrada_"):
+            while msg.body != str(self.agent.posicao):
                 msg = await self.receive(timeout=100)
 
-            # É um carroo: aguarda até que o semáforo fique verde
-            if msg.body == str(self.agent.posicao):
-                while self.agent.cor != Interface.semaforo_verde:
-                    pygame.display.update()
-                    print(f'O carro {str(msg.sender)} está a aguardar que o semáforo {self.agent.posicao} fique verde...')
-                    await asyncio.sleep(1)
-                if msg:
-                    reply_body = f"A luz está verde no semáforo {self.agent.posicao}. Pode avançar!"
+            # Aguarda até que o semáforo fique verde
+            while self.agent.cor != Interface.semaforo_verde:
+                pygame.display.update()
+                print(f'O carro {str(msg.sender)} está a aguardar que o semáforo {self.agent.posicao} fique verde...')
+                await asyncio.sleep(1)
+            if msg:
+                reply_body = f"A luz está verde no semáforo {self.agent.posicao}. Pode avançar!"
 
-                    # Manda  mensagem para o carro
-                    reply = Message(to=str(msg.sender))
-                    reply.set_metadata("performative", "inform")
-                    reply.body = reply_body
-                    await self.send(reply)
-
-            # É uma ambulancia: aguarda até que o semáforo fique verde ou nao tenha nenhum carro na intersecao
-            if msg.body.startswith("estrada_"):
-                for estrada in estradas:
-                    if str(estrada.jid) == msg.body:
-                        for c in estrada.carros:
-                            if str(c.jid) == str(msg.sender):
-                                ambulancia = c
-                while self.agent.cor != Interface.semaforo_verde and ambulancia_para(ambulancia):
-                    pygame.display.update()
-                    print(f'A ambulancia {str(msg.sender)} está a aguardar que o semáforo {self.agent.posicao} fique verde ou que não tenha carros a passar...')
-                    await asyncio.sleep(1)
-                if msg:
-                    if self.agent.cor == Interface.semaforo_verde:
-                        reply_body = f"A luz está verde no semáforo {self.agent.posicao}. Pode avançar!"
-                    else:
-                        reply_body = f"Não está nenhum carro a passar. A ambulancia {self.agent.posicao} pode avançar!"
-
-                    # Manda  mensagem para o carro
-                    reply = Message(to=str(msg.sender))
-                    reply.set_metadata("performative", "inform")
-                    reply.body = reply_body
-                    await self.send(reply)
+                # Manda  mensagem para o carro
+                reply = Message(to=str(msg.sender))
+                reply.set_metadata("performative", "inform")
+                reply.body = reply_body
+                await self.send(reply)
 
     async def setup(self):
         print("{} começou".format(str(self.jid)))
         Interface.liga_semaforo(self.posicao, self.cor)
         pygame.display.update()
-        '''self.my_behav = self.MyBehav()
-        self.add_behaviour(self.my_behav)'''
-        b = self.RecvBehav()
+        b = self.RecebeCarros()
         template = Template()
         template.set_metadata("performative", "inform")
         self.add_behaviour(b, template)
@@ -146,19 +149,15 @@ class CarroAgente(Agent):
             (self.agent.direcao=="baixo" and self.agent.y == veiculo_frente.y - Interface.alt_carro - 0.1*Interface.alt_carro)):
                 self.agent.estado = 0
                 veiculo_frente.anterior = self.agent
-            if (((self.agent.direcao == "cima" or self.agent.direcao == "baixo")and\
+            if ((self.agent.direcao == "cima" or self.agent.direcao == "baixo")and\
             self.agent.y in Interface.paragem_carro(self.agent.direcao)) or\
             ((self.agent.direcao == "direita" or self.agent.direcao == "esquerda") and\
-            self.agent.x in Interface.paragem_carro(self.agent.direcao))) and\
-            (self.agent.carro.tipo != "ambulance" or ambulancia_para(self.agent)):
+            self.agent.x in Interface.paragem_carro(self.agent.direcao)):
                     self.agent.estado = 0
                     semaforo = identifica_semaforo(self.agent.x, self.agent.y, self.agent.direcao)
                     msg = Message(to=f"semaforo_{semaforo}@localhost")
                     msg.set_metadata("performative", "inform")
-                    if self.agent.carro.tipo == "carro":
-                        msg.body = str(semaforo)
-                    else:
-                        msg.body = jid_estrada
+                    msg.body = str(semaforo)
                     await self.send(msg)
                     #Só recebe respostas do semaforo em que está parado
                     reply = await self.receive(timeout=100)
@@ -190,36 +189,6 @@ class CarroAgente(Agent):
         pygame.display.update()
         self.my_behav = self.MyBehav()
         self.add_behaviour(self.my_behav)
-
-'''class CentralAgente(Agent):
-    def __init__(self, jid, password):
-        super().__init__(jid, password)
-
-    class MyBehav(CyclicBehaviour):
-        async def run(self):
-            # Process messages received by the central agent
-            msg = await self.receive(timeout=1000)  # Timeout of 1000ms (1 second)
-            if msg:
-                performative = msg.get_metadata("performative")
-
-                if performative == "inform" and "semaphore_data" in msg.body:
-                    # Process data received from Traffic Light Agents
-                    semaphore_data = msg.body["semaphore_data"]
-                    print(f"Central received semaphore data: {semaphore_data}")
-
-                    # You can add coordination logic here based on semaphore data
-
-                elif performative == "request" and "vehicle_data" in msg.body:
-                    # Process data received from Vehicle Agents
-                    vehicle_data = msg.body["vehicle_data"]
-                    print(f"Central received vehicle data: {vehicle_data}")
-
-                    # You can add coordination logic here based on vehicle data
-
-    async def setup(self):
-        print("{} começou".format(str(self.jid)))
-        self.my_behav = self.MyBehav()
-        self.add_behaviour(self.my_behav)'''
 
 #Limites para cada parte da estrada
 def limites(direcao):
@@ -527,10 +496,7 @@ async def main():
     Interface.desenha_estrada(Interface.Cores.GREY)
     Interface.desenha_semaforos(Interface.semaforo_cinza)
 
-    '''password = f"central"
-    central = CentralAgente("central@localhost", password)
-    await central.start()'''
-
+    global semaforos
     semaforos = []
     for i in range(len(Interface.coordenadas_semaforos)):
         jid = f"semaforo_{i}@localhost"
@@ -546,6 +512,11 @@ async def main():
         semaforos.append(semaforo)
     for semaforo in semaforos:
         await semaforo.start()
+
+
+    password = f"central"
+    central = CentralAgente("central@localhost", password)
+    await central.start(auto_register=True)
 
     global veiculos_em_circulacao
     global veiculos_iniciados
