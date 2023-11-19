@@ -55,22 +55,46 @@ class SemaforoAgente(Agent):
             # Agora o semáforo está verde, pode responder
             msg = await self.receive(timeout=500)
             #Só recebe mensagens de carros
-            while msg.body != str(self.agent.posicao):
+            while msg.body != str(self.agent.posicao) and not msg.body.startswith("estrada_"):
                 msg = await self.receive(timeout=100)
 
-            # Aguarda até que o semáforo fique verde
-            while self.agent.cor != Interface.semaforo_verde:
-                pygame.display.update()
-                print(f'O carro {str(msg.sender)} está a aguardar que o semáforo {self.agent.posicao} fique verde...')
-                await asyncio.sleep(1)
-            if msg:
-                reply_body = f"A luz está verde no semáforo {self.agent.posicao}. Pode avançar!"
+            # É um carroo: aguarda até que o semáforo fique verde
+            if msg.body == str(self.agent.posicao):
+                while self.agent.cor != Interface.semaforo_verde:
+                    pygame.display.update()
+                    print(f'O carro {str(msg.sender)} está a aguardar que o semáforo {self.agent.posicao} fique verde...')
+                    await asyncio.sleep(1)
+                if msg:
+                    reply_body = f"A luz está verde no semáforo {self.agent.posicao}. Pode avançar!"
 
-                # Manda  mensagem para o carro
-                reply = Message(to=str(msg.sender))
-                reply.set_metadata("performative", "inform")
-                reply.body = reply_body
-                await self.send(reply)
+                    # Manda  mensagem para o carro
+                    reply = Message(to=str(msg.sender))
+                    reply.set_metadata("performative", "inform")
+                    reply.body = reply_body
+                    await self.send(reply)
+
+            # É uma ambulancia: aguarda até que o semáforo fique verde ou nao tenha nenhum carro na intersecao
+            if msg.body.startswith("estrada_"):
+                for estrada in estradas:
+                    if str(estrada.jid) == msg.body:
+                        for c in estrada.carros:
+                            if str(c.jid) == str(msg.sender):
+                                ambulancia = c
+                while self.agent.cor != Interface.semaforo_verde and ambulancia_para(ambulancia):
+                    pygame.display.update()
+                    print(f'A ambulancia {str(msg.sender)} está a aguardar que o semáforo {self.agent.posicao} fique verde ou que não tenha carros a passar...')
+                    await asyncio.sleep(1)
+                if msg:
+                    if self.agent.cor == Interface.semaforo_verde:
+                        reply_body = f"A luz está verde no semáforo {self.agent.posicao}. Pode avançar!"
+                    else:
+                        reply_body = f"Não está nenhum carro a passar. A ambulancia {self.agent.posicao} pode avançar!"
+
+                    # Manda  mensagem para o carro
+                    reply = Message(to=str(msg.sender))
+                    reply.set_metadata("performative", "inform")
+                    reply.body = reply_body
+                    await self.send(reply)
 
     async def setup(self):
         print("{} começou".format(str(self.jid)))
@@ -131,7 +155,10 @@ class CarroAgente(Agent):
                     semaforo = identifica_semaforo(self.agent.x, self.agent.y, self.agent.direcao)
                     msg = Message(to=f"semaforo_{semaforo}@localhost")
                     msg.set_metadata("performative", "inform")
-                    msg.body = str(semaforo)
+                    if self.agent.carro.tipo == "carro":
+                        msg.body = str(semaforo)
+                    else:
+                        msg.body = jid_estrada
                     await self.send(msg)
                     #Só recebe respostas do semaforo em que está parado
                     reply = await self.receive(timeout=100)
@@ -164,7 +191,7 @@ class CarroAgente(Agent):
         self.my_behav = self.MyBehav()
         self.add_behaviour(self.my_behav)
 
-class CentralAgente(Agent):
+'''class CentralAgente(Agent):
     def __init__(self, jid, password):
         super().__init__(jid, password)
 
@@ -192,7 +219,7 @@ class CentralAgente(Agent):
     async def setup(self):
         print("{} começou".format(str(self.jid)))
         self.my_behav = self.MyBehav()
-        self.add_behaviour(self.my_behav)
+        self.add_behaviour(self.my_behav)'''
 
 #Limites para cada parte da estrada
 def limites(direcao):
@@ -258,19 +285,52 @@ def veiculo_a_frente(carro):
 
     return None
 
-#retorna true se a ambulancia tiver que parar porque vêm carros do lado
+
+# Retorna true se a ambulancia tiver que parar porque vêm carros do lado
 def ambulancia_para(ambulancia):
-    if ambulancia.direcao == "direita" or ambulancia.direcao == "esquerda":
-        jid_estrada1= f"estrada_cima_{ambulancia.estrada - 1}@localhost"
-        jid_estrada2= f"estrada_baixo_{ambulancia.estrada}@localhost"
-    if ambulancia.direcao == "cima" or ambulancia.direcao == "baixo":
-        jid_estrada1= f"estrada_esquerda_{ambulancia.estrada - 1}@localhost"
-        jid_estrada2= f"estrada_direita_{ambulancia.estrada}@localhost"
-    '''(...)'''
+    parte_ambulancia = parte_estrada(ambulancia)
+    aux = Interface.num_linhas-1
+    jid_estrada1 = 0
+    jid_estrada2 = 0
+    if ambulancia.direcao == "direita":
+        jid_estrada1= f"estrada_baixo_{parte_ambulancia}@localhost"
+        parte_estrada1 = ambulancia.estrada
+        if (parte_ambulancia)<Interface.num_linhas:
+            jid_estrada2= f"estrada_cima_{parte_ambulancia + 1}@localhost"
+            parte_estrada2 = aux - ambulancia.estrada + 1
+    elif ambulancia.direcao == "esquerda":
+        jid_estrada1= f"estrada_cima_{aux - parte_ambulancia}@localhost"
+        parte_estrada1 = aux - ambulancia.estrada
+        if (aux - parte_ambulancia - 1)>=0:
+            jid_estrada2= f"estrada_baixo_{aux - parte_ambulancia - 1}@localhost"
+            parte_estrada2 = ambulancia.estrada + 1
+    elif ambulancia.direcao == "cima":
+        jid_estrada1= f"estrada_direita_{aux - parte_ambulancia}@localhost"
+        parte_estrada1 = ambulancia.estrada
+        if (aux - parte_ambulancia - 1)>=0:
+            jid_estrada2= f"estrada_esquerda_{aux - parte_ambulancia - 1}@localhost"
+            parte_estrada2 = aux - ambulancia.estrada + 1
+    elif ambulancia.direcao == "baixo":
+        jid_estrada1= f"estrada_esquerda_{parte_ambulancia}@localhost"
+        parte_estrada1 = aux - ambulancia.estrada
+        if (parte_ambulancia)<Interface.num_linhas:
+            jid_estrada2= f"estrada_direita_{parte_ambulancia + 1}@localhost"
+            parte_estrada2 = ambulancia.estrada + 1
+    for estrada in estradas:
+        if str(estrada.jid) == jid_estrada1:
+            for c in estrada.carros:
+                if (parte_estrada(c) == parte_estrada1 and na_intersecao(c)) or parte_estrada(c) == parte_estrada1-1:
+                    return True
+    if jid_estrada2 != 0:
+        for estrada in estradas:
+            if str(estrada.jid) == jid_estrada2:
+                for c in estrada.carros:
+                    if (parte_estrada(c) == parte_estrada2 and na_intersecao(c)) or parte_estrada(c) == parte_estrada2-1:
+                        return True
     return False
 
 
-#Identifica a posicao do semáforo onde o carro está parado
+# Identifica a posicao do semáforo onde o carro está parado
 def identifica_semaforo(x, y, direcao):
     lista_coord = []
     if direcao=="cima" or direcao=="baixo":
@@ -467,9 +527,9 @@ async def main():
     Interface.desenha_estrada(Interface.Cores.GREY)
     Interface.desenha_semaforos(Interface.semaforo_cinza)
 
-    password = f"central"
+    '''password = f"central"
     central = CentralAgente("central@localhost", password)
-    await central.start()
+    await central.start()'''
 
     semaforos = []
     for i in range(len(Interface.coordenadas_semaforos)):
@@ -511,8 +571,8 @@ async def main():
     limites_esquerda = limites("esquerda")
 
     '''x, y = 0, 0
-    carro1 = CarroAgente("vermelho@localhost", "red", Interface.carro_vermelho, "esquerda", x, y, 2)
-    carro2 = CarroAgente("preto@localhost", "black", Interface.carro_preto, "cima", x, y, 2)
+    carro2 = CarroAgente("vermelho@localhost", "red", Interface.carro_vermelho, "direita", x, y, 1)
+    carro1 = CarroAgente("ambulancia@localhost", "black", Interface.ambulancia, "baixo", x, y, 0)
     carro3 = CarroAgente("azul@localhost", "blue", Interface.carro_azul, "baixo", x, y, 1)
     veiculos_em_circulacao.add(carro1)
     jid_estrada = "estrada_direita_2@localhost"
@@ -521,7 +581,7 @@ async def main():
     #Interface.inicia_carro(carro3)
     #pygame.display.update()
     while True:
-        #await asyncio.sleep(4)
+        await asyncio.sleep(6)
         jid_estrada = f"estrada_{carro1.direcao}_{carro1.estrada}@localhost"
         for estrada in estradas:
             if str(estrada.jid) == jid_estrada:
@@ -529,7 +589,7 @@ async def main():
                 break
         await agentes()
         #asyncio.create_task(verifica(carro1))
-        await asyncio.sleep(7)
+        #await asyncio.sleep(20)
         while not pode_iniciar(carro2):
             await asyncio.sleep(1)
         veiculos_em_circulacao.add(carro2)
