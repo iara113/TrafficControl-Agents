@@ -142,7 +142,7 @@ def desenha_estrada(cor):
             desenha_linha_tracejada_horizontal(0, y, 5)
 
 
-#Retorna uma lista com o indice dos semaforos na posicao cima
+# Retorna uma lista com o indice dos semaforos na posicao cima
 def cima():
     x=(2*num_estradas)-1
     resultado = []
@@ -159,7 +159,7 @@ def cima():
 
     return resultado
 
-#Retorna uma lista com o indice dos semaforos na posicao direita
+# Retorna uma lista com o indice dos semaforos na posicao esquerda
 def esquerda():
     x=(2*num_estradas)-1
     lista_cima = cima()
@@ -170,7 +170,7 @@ def esquerda():
 
     return numeros_pares
 
-#Retorna uma lista com o indice dos semaforos na posicao esquerda
+# Retorna uma lista com o indice dos semaforos na posicao direita
 def direita():
     x=(2*num_estradas)-1
     resultado = []
@@ -187,7 +187,7 @@ def direita():
 
     return resultado
 
-#Retorna uma lista com o indice dos semaforos na posicao invertida
+# Retorna uma lista com o indice dos semaforos na posicao invertida
 def baixo():
     x = (2 * num_estradas) - 1
     lista_esquerda = direita()
@@ -199,7 +199,7 @@ def baixo():
     return numeros_impares
 
 
-#Retorna uma lista com as coordenadas para todos os semaforos
+# Retorna uma lista com as coordenadas para todos os semaforos
 def calcula_coordenadas_semaforos():
     aux_asfalto = (largura - (num_estradas * tamanho_espessura)) // num_estradas
     tamanho_asfalto = int(aux_asfalto - 0.15 * aux_asfalto)
