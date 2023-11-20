@@ -25,21 +25,71 @@ class CentralAgente(Agent):
 
     class MensagemSemaforo(CyclicBehaviour):
         async def run(self):
-            await asyncio.sleep(10)
-            for semaforo in semaforos:
-                # Muda para verde
-                if semaforo.cor == Interface.semaforo_vermelho:
-                    msg = Message(to= str(semaforo.jid))
+            await asyncio.sleep(2)
+            semaforos_copy = semaforos.copy()
+            lista_mudados = []
+            for semaforo in semaforos_copy:
+                jid_estrada, parte = estrada_semaforo(semaforo)
+                #print(jid_estrada)
+                intersecao = semaforos_intersecao(semaforo)
+                oposto = intersecao[0]
+                contrario1 = intersecao[1]
+                contrario2 = intersecao[2]
+                #Se tiver uma ambulancia na estrada com semaforo vermelho, mudar para verde
+                if semaforo.cor == Interface.semaforo_vermelho and estrada_com_ambulancia(jid_estrada, parte):
+                    msg = Message(to= str(semaforo.jid)) #Mensagem para estrada com semaforo vermelho e ambulancia
                     msg.set_metadata("performative", "inform")
                     msg.body = f"{str(semaforo.jid)}_verde"
                     await self.send(msg)
-
-                # Muda para amarelo
-                elif semaforo.cor == Interface.semaforo_verde:
-                    msg = Message(to= str(semaforo.jid))
-                    msg.set_metadata("performative", "inform")
-                    msg.body = f"{str(semaforo.jid)}_amarelo"
-                    await self.send(msg)
+                    lista_mudados.append(semaforo)
+                    if oposto!=' ':
+                        msg = Message(to=str(oposto.jid))
+                        msg.set_metadata("performative", "inform")
+                        msg.body = f"{str(oposto.jid)}_verde"
+                        await self.send(msg)
+                        lista_mudados.append(oposto)
+                    if contrario1!=' ':
+                        msg = Message(to=str(contrario1.jid))
+                        msg.set_metadata("performative", "inform")
+                        msg.body = f"{str(contrario1.jid)}_amarelo"
+                        await self.send(msg)
+                        lista_mudados.append(contrario1)
+                    if contrario2!=' ':
+                        msg = Message(to=str(contrario2.jid))
+                        msg.set_metadata("performative", "inform")
+                        msg.body = f"{str(contrario2.jid)}_amarelo"
+                        await self.send(msg)
+                        lista_mudados.append(contrario2)
+                else:
+                    mais_carros = semaforo_mais_carros(semaforo, oposto, contrario1, contrario2)
+                    if mais_carros!="igual" and mais_carros.cor != Interface.semaforo_verde and semaforo not in lista_mudados:
+                        intersecao = semaforos_intersecao(mais_carros)
+                        oposto = intersecao[0]
+                        contrario1 = intersecao[1]
+                        contrario2 = intersecao[2]
+                        msg = Message(to= str(mais_carros.jid))
+                        msg.set_metadata("performative", "inform")
+                        msg.body = f"{str(mais_carros.jid)}_verde"
+                        await self.send(msg)
+                        lista_mudados.append(mais_carros)
+                        if oposto!=' ':
+                            msg = Message(to=str(oposto.jid))
+                            msg.set_metadata("performative", "inform")
+                            msg.body = f"{str(oposto.jid)}_verde"
+                            await self.send(msg)
+                            lista_mudados.append(oposto)
+                        if contrario1!=' ':
+                            msg = Message(to=str(contrario1.jid))
+                            msg.set_metadata("performative", "inform")
+                            msg.body = f"{str(contrario1.jid)}_amarelo"
+                            await self.send(msg)
+                            lista_mudados.append(contrario1)
+                        if contrario2!=' ':
+                            msg = Message(to=str(contrario2.jid))
+                            msg.set_metadata("performative", "inform")
+                            msg.body = f"{str(contrario2.jid)}_amarelo"
+                            await self.send(msg)
+                            lista_mudados.append(contrario2)
 
     async def setup(self):
         print("{} começou".format(str(self.jid)))
@@ -47,6 +97,117 @@ class CentralAgente(Agent):
         template.set_metadata("performative", "inform")
         c = self.MensagemSemaforo()
         self.add_behaviour(c, template)
+
+#Retorna a estrada do semaforo e a parte da estrada
+def estrada_semaforo(semaforo):
+    if semaforo.posicao in Interface.cima():
+        lista = Interface.cima()
+        dir = "cima"
+    elif semaforo.posicao in Interface.baixo():
+        lista = Interface.baixo()
+        dir = "baixo"
+    elif semaforo.posicao in Interface.esquerda():
+        lista = Interface.esquerda()
+        dir = "esquerda"
+    elif semaforo.posicao in Interface.direita():
+        lista = Interface.direita()
+        dir = "direita"
+    for i in range(0, len(lista), Interface.num_linhas):
+        intervalo = lista[i:i+Interface.num_linhas]
+        if semaforo.posicao in intervalo:
+            if dir=="esquerda":
+                parte = Interface.num_linhas - intervalo.index(semaforo.posicao) - 1
+                pos =  i // Interface.num_linhas
+            if dir=="direita":
+                parte = intervalo.index(semaforo.posicao)
+                pos = i // Interface.num_linhas
+            elif dir=="cima":
+                parte = Interface.num_linhas - i // Interface.num_linhas - 1
+                pos = intervalo.index(semaforo.posicao)
+            if dir=="baixo":
+                parte = i // Interface.num_linhas
+                pos = intervalo.index(semaforo.posicao)
+            break
+    jid_estrada =  f"estrada_{dir}_{pos}@localhost"
+    return jid_estrada, parte
+
+#Retorna true se tiver ambulancias na estrada do semaforo
+def estrada_com_ambulancia(jid_estrada, parte):
+    estradas_ambulancias = []
+    for estrada in estradas:
+        if jid_estrada == str(estrada.jid):
+            for c in estrada.carros:
+                if c.carro.tipo=="ambulancia":
+                    if parte_estrada(c) == parte:
+                        return True
+    return False
+
+#Retorna uma lista com os os semaforos que estao na mesma intersecao que o semaforo
+def semaforos_intersecao(semaforo):
+    lista = []
+    intervalo = (Interface.num_linhas*4) - (Interface.num_linhas*2 - 1)
+    intervalo2 = Interface.num_linhas*2 - 1
+    pos = semaforo.posicao
+    if pos in Interface.cima():
+        lista.append(semaforos[pos - intervalo] if pos - intervalo >= 0 and semaforos[pos - intervalo].posicao in Interface.baixo() else " ")
+        lista.append(semaforos[pos - intervalo + 1] if pos - intervalo >= 0 and semaforos[pos - intervalo + 1].posicao in Interface.esquerda() else " ")
+        lista.append(semaforos[pos - 1] if pos - 1 >= 0 and semaforos[pos - 1].posicao in Interface.direita() else " ")
+
+    if pos in Interface.baixo():
+        lista.append(semaforos[pos + intervalo] if pos + intervalo < len(Interface.coordenadas_semaforos) and semaforos[pos + intervalo].posicao in Interface.cima() else " ")
+        lista.append(semaforos[pos + 1] if pos + 1 < len(Interface.coordenadas_semaforos) and semaforos[pos + 1].posicao in Interface.esquerda() else " ")
+        lista.append(semaforos[pos + intervalo - 1] if pos + intervalo - 1 < len(Interface.coordenadas_semaforos) and semaforos[pos + intervalo - 1].posicao in Interface.direita() else " ")
+
+    if pos in Interface.esquerda():
+        lista.append(semaforos[pos + intervalo2] if pos + intervalo2 < len(Interface.coordenadas_semaforos) and semaforos[pos + intervalo2].posicao in Interface.direita() else " ")
+        lista.append(semaforos[pos - 1] if pos - 1 >=0 and semaforos[pos - 1].posicao in Interface.baixo() else " ")
+        lista.append(semaforos[pos + intervalo2 + 1] if pos + intervalo2 + 1 < len(Interface.coordenadas_semaforos) and semaforos[pos + intervalo2 + 1].posicao in Interface.cima() else " ")
+
+    if pos in Interface.direita():
+        lista.append(semaforos[pos - intervalo2] if pos - intervalo2 >=0 and semaforos[pos - intervalo2].posicao in Interface.esquerda() else " ")
+        lista.append(semaforos[pos - intervalo2 - 1] if pos - intervalo2 - 1 >= 0 and semaforos[pos - intervalo2 - 1].posicao in Interface.baixo() else " ")
+        lista.append(semaforos[pos + 1] if pos + 1 < len(Interface.coordenadas_semaforos)and semaforos[pos + 1].posicao in Interface.cima() else " ")
+
+    return lista
+
+#Retorna o semaforo com mais carros
+def semaforo_mais_carros(s1, s2, s3, s4):
+    jid_estrada1, jid_estrada2, jid_estrada3, jid_estrada4 = " ", " ", " ", " "
+    parte1, parte2, parte3, parte4 = " ", " ", " ", " "
+    if s1!= ' ':
+        jid_estrada1, parte1 = estrada_semaforo(s1)
+    if s2!= ' ':
+        jid_estrada2, parte2 = estrada_semaforo(s2)
+    if s3!= ' ':
+        jid_estrada3, parte3 = estrada_semaforo(s3)
+    if s4!= ' ':
+        jid_estrada4, parte4 = estrada_semaforo(s4)
+    n1, n2, n3, n4 = 0, 0, 0, 0
+    for estrada in estradas:
+        if str(estrada.jid) == jid_estrada1:
+            for c in estrada.carros:
+                if parte_estrada(c) == parte1:
+                    n1 += 1
+        if str(estrada.jid) == jid_estrada2:
+            for c in estrada.carros:
+                if parte_estrada(c) == parte2:
+                    n2 += 1
+        if str(estrada.jid) == jid_estrada3:
+            for c in estrada.carros:
+                if parte_estrada(c) == parte3:
+                    n3 += 1
+        if str(estrada.jid) == jid_estrada4:
+            for c in estrada.carros:
+                if parte_estrada(c) == parte4:
+                    n4 += 1
+    semaforos = [s1, s2, s3, s4]
+    contagens = [n1, n2, n3, n4]
+    if (n1 == n2 == n3 == n4) :
+        return "igual"
+    semaforo_mais_carros = semaforos[contagens.index(max(contagens))]
+    return semaforo_mais_carros
+
+
 
 #Agente semáforo
 class SemaforoAgente(Agent):
@@ -66,16 +227,17 @@ class SemaforoAgente(Agent):
                 reply = await self.receive(timeout=100)
 
             cor = reply.body.split("_")[-1]
-            print(f"Mudar o semaforo {str(self.agent.jid)} para a cor: {cor}")
+            #print(f"Mudar o semaforo {str(self.agent.jid)} para a cor: {cor}")
             if cor=="amarelo":
-                self.agent.cor = Interface.semaforo_amarelo
-                Interface.liga_semaforo(self.agent.posicao, self.agent.cor)
-                await asyncio.sleep(2)
+                if self.agent.cor==Interface.semaforo_verde:
+                    self.agent.cor = Interface.semaforo_amarelo
+                    Interface.liga_semaforo(self.agent.posicao, self.agent.cor)
+                    await asyncio.sleep(2)
                 self.agent.cor = Interface.semaforo_vermelho
-                Interface.liga_semaforo(self.agent.posicao, self.agent.cor)
             if cor=="verde":
+                await asyncio.sleep(1)
                 self.agent.cor = Interface.semaforo_verde
-                Interface.liga_semaforo(self.agent.posicao, self.agent.cor)
+            Interface.liga_semaforo(self.agent.posicao, self.agent.cor)
 
 
     class RecebeCarros(CyclicBehaviour):
@@ -163,7 +325,7 @@ class CarroAgente(Agent):
                     reply = await self.receive(timeout=100)
                     while str(reply.sender) != f"semaforo_{semaforo}@localhost":
                         reply = await self.receive(timeout=100)
-                    print(f"Mensagem recebida pelo carro {str(self.agent.jid)}: {reply.body}")
+                    print(f"O carro {str(self.agent.jid)} recebeu esta mensagem do {str(reply.sender)} : {reply.body}")
                     self.agent.estado = 1
                     if self.agent.anterior == 0:
                         self.agent.anterior.estado = 1
@@ -198,9 +360,9 @@ def limites(direcao):
             limites_set.add(Interface.coordenadas_semaforos[i][1])
         elif direcao == "baixo" and i in Interface.baixo():
             limites_set.add(Interface.coordenadas_semaforos[i][1])
-        elif direcao == "esquerda" and i in Interface.direita():
+        elif direcao == "esquerda" and i in Interface.esquerda():
             limites_set.add(Interface.coordenadas_semaforos[i][0])
-        elif direcao == "direita" and i in Interface.esquerda():
+        elif direcao == "direita" and i in Interface.direita():
             limites_set.add(Interface.coordenadas_semaforos[i][0])
 
     limites_sorted = sorted(list(limites_set), reverse=(direcao in ["cima", "esquerda"]))
@@ -324,11 +486,11 @@ def identifica_semaforo(x, y, direcao):
         lista_x = []
         for i in range(len(Interface.coordenadas_semaforos)):
             if int(x-Interface.tamanho_semaforo//4) == int(Interface.coordenadas_semaforos[i][0])\
-            and direcao=="esquerda" and i in Interface.direita():
+            and direcao=="esquerda" and i in Interface.esquerda():
                 lista_x.append(i)
                 lista_coord.append(Interface.coordenadas_semaforos[i])
             if int(x+Interface.tamanho_semaforo//4) == int(Interface.coordenadas_semaforos[i][0])\
-            and direcao=="direita" and i in Interface.esquerda():
+            and direcao=="direita" and i in Interface.direita():
                 lista_x.append(i)
                 lista_coord.append(Interface.coordenadas_semaforos[i])
         distancia_min_y = abs(lista_coord[0][1] - y)
@@ -505,14 +667,13 @@ async def main():
             semaforo = SemaforoAgente(jid, password, Interface.coordenadas_semaforos[i], Interface.semaforo_verde, i)
         if i in Interface.baixo():
             semaforo = SemaforoAgente(jid, password, Interface.coordenadas_semaforos[i], Interface.semaforo_verde, i)
-        if i in Interface.esquerda():
-            semaforo = SemaforoAgente(jid, password, Interface.coordenadas_semaforos[i], Interface.semaforo_vermelho, i)
         if i in Interface.direita():
+            semaforo = SemaforoAgente(jid, password, Interface.coordenadas_semaforos[i], Interface.semaforo_vermelho, i)
+        if i in Interface.esquerda():
             semaforo = SemaforoAgente(jid, password, Interface.coordenadas_semaforos[i], Interface.semaforo_vermelho, i)
         semaforos.append(semaforo)
     for semaforo in semaforos:
-        await semaforo.start()
-
+        await semaforo.start(auto_register=True)
 
     password = f"central"
     central = CentralAgente("central@localhost", password)
@@ -542,17 +703,16 @@ async def main():
     limites_esquerda = limites("esquerda")
 
     '''x, y = 0, 0
-    carro2 = CarroAgente("vermelho@localhost", "red", Interface.carro_vermelho, "direita", x, y, 1)
-    carro1 = CarroAgente("ambulancia@localhost", "black", Interface.ambulancia, "baixo", x, y, 0)
+    carro1 = CarroAgente("amb1@localhost", "black", Interface.carro_preto, "baixo", x, y, 0)
+    carro2 = CarroAgente("amb2@localhost", "red", Interface.carro_azul, "direita", x, y, 1)
     carro3 = CarroAgente("azul@localhost", "blue", Interface.carro_azul, "baixo", x, y, 1)
     veiculos_em_circulacao.add(carro1)
-    jid_estrada = "estrada_direita_2@localhost"
     Interface.inicia_carro(carro1)
     Interface.inicia_carro(carro2)
     #Interface.inicia_carro(carro3)
     #pygame.display.update()
     while True:
-        await asyncio.sleep(6)
+        await asyncio.sleep(8)
         jid_estrada = f"estrada_{carro1.direcao}_{carro1.estrada}@localhost"
         for estrada in estradas:
             if str(estrada.jid) == jid_estrada:
