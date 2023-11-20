@@ -1,16 +1,8 @@
 import sys
 import pygame
-import spade
-import asyncio
-from spade import wait_until_finished
-from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour
-from queue import Queue
-import math
 
 global screen
 
-#sudo service prosody start
 
 #Cores a serem usadas
 class Cores:
@@ -21,14 +13,14 @@ class Cores:
     YELLOW = (255, 255, 0)
     BLUE = (0, 0, 255)
     GREY = (128, 128, 128)
-    FOREST_GREEN = (34,139,34)
+
 
 #Medidas Constantes
 altura = 600
 largura = 600
 num_linhas = 3
-#espessura da estrada
-tamanho_espessura = largura // (num_linhas*3)
+tamanho_espessura = largura // (num_linhas*3) #espessura da estrada
+
 
 #Classe de um Semáforo
 class Semaforo():
@@ -36,110 +28,113 @@ class Semaforo():
         self.cor = cor
         self.direcao = direcao
 
+
 #Classe de um Veículo
 class Veiculo():
     def __init__(self, tipo, direcao):
         self.tipo = tipo #Vê se é carro/ambulância
         self.direcao = direcao
 
+
 #Classe da Direcao do semáforo/veículo
 class Direcao():
     def __init__(self, cima, baixo, esquerda, direita):
-        self.cima = cima
-        self.baixo = baixo
+        self.cima     = cima
+        self.baixo    = baixo
         self.esquerda = esquerda
-        self.direita = direita
+        self.direita  = direita
 
     def transforma(self, alt, larg):
-        self.cima = pygame.transform.scale(self.cima, (alt, larg))
-        self.baixo = pygame.transform.scale(self.baixo, (alt, larg))
+        self.cima     = pygame.transform.scale(self.cima, (alt, larg))
+        self.baixo    = pygame.transform.scale(self.baixo, (alt, larg))
         self.esquerda = pygame.transform.scale(self.esquerda, (larg, alt))
-        self.direita = pygame.transform.scale(self.direita, (larg, alt))
+        self.direita  = pygame.transform.scale(self.direita, (larg, alt))
 
     def download_imagens(cor, tipo, alt, larg):
         cima    = pygame.image.load(f"imagens/{tipo}/{cor}.png")
         direita = pygame.image.load(f"imagens/{tipo}/{cor}_right.png")
 
+        # Semáforo cinza só apresenta duas direções
         if cor != "grey":
-            baixo  = pygame.image.load(f"imagens/{tipo}/{cor}_upsidedown.png")
-            esquerda  = pygame.image.load(f"imagens/{tipo}/{cor}_left.png")
-            direcao = Direcao(cima, baixo, esquerda, direita)
+            baixo    = pygame.image.load(f"imagens/{tipo}/{cor}_upsidedown.png")
+            esquerda = pygame.image.load(f"imagens/{tipo}/{cor}_left.png")
+            direcao  = Direcao(cima, baixo, esquerda, direita)
         else:
             direcao = Direcao(cima, cima, direita, direita)
         direcao.transforma(alt, larg)
         return direcao
 
-tamanho_seta = largura // (num_linhas*2)
-hospital = pygame.image.load(f"imagens/hospital.png")
-hospital = pygame.transform.scale(hospital, (tamanho_seta, tamanho_seta))
 
-# Direções para cada semaforo
+# Criação da representação dos semáforos
 tamanho_semaforo = largura // (num_linhas*6)
 verde    = Direcao.download_imagens("green", "sinais", tamanho_semaforo, tamanho_semaforo)
 amarelo  = Direcao.download_imagens("yellow", "sinais", tamanho_semaforo, tamanho_semaforo)
 vermelho = Direcao.download_imagens("red", "sinais", tamanho_semaforo, tamanho_semaforo)
 cinza    = Direcao.download_imagens("grey", "sinais", tamanho_semaforo, tamanho_semaforo)
 
-# Semaforo para cada cor
-semaforo_verde = Semaforo("verde", verde)
+semaforo_verde    = Semaforo("verde", verde)
 semaforo_vermelho = Semaforo("vermelho", vermelho)
-semaforo_amarelo = Semaforo("amarelo", amarelo)
-semaforo_cinza = Semaforo("cinza", cinza)
+semaforo_amarelo  = Semaforo("amarelo", amarelo)
+semaforo_cinza    = Semaforo("cinza", cinza)
 
-# Direções para cada carro
+
+# Criação da representação dos carros
 larg_carro = largura // (num_linhas*8)
-alt_carro = largura // (num_linhas*5)
-carro_v = Direcao.download_imagens("red", "carros", larg_carro, alt_carro)
-carro_a = Direcao.download_imagens("blue", "carros", larg_carro, alt_carro)
-carro_p = Direcao.download_imagens("black", "carros", larg_carro, alt_carro)
-carro_g = Direcao.download_imagens("green", "carros", larg_carro, alt_carro)
-mot = Direcao.download_imagens("motorcycle", "carros", larg_carro, alt_carro)
-ambul = Direcao.download_imagens("ambulance", "ambulancias", larg_carro, alt_carro)
+alt_carro  = altura // (num_linhas*5)
 
-#Veículos
-carro_vermelho = Veiculo("carro", carro_v)
-carro_azul = Veiculo("carro", carro_a)
-carro_preto = Veiculo("carro", carro_p)
-carro_verde = Veiculo("carro", carro_g)
-mota = Veiculo("carro", mot)
-ambulancia = Veiculo("ambulance", ambul)
+dir_vemelho    = Direcao.download_imagens("red", "carros", larg_carro, alt_carro)
+dir_amarelo    = Direcao.download_imagens("blue", "carros", larg_carro, alt_carro)
+dir_preto      = Direcao.download_imagens("black", "carros", larg_carro, alt_carro)
+dir_verde      = Direcao.download_imagens("green", "carros", larg_carro, alt_carro)
+dir_mota       = Direcao.download_imagens("motorcycle", "carros", larg_carro, alt_carro)
+dir_ambulancia = Direcao.download_imagens("ambulance", "ambulancias", larg_carro, alt_carro)
+
+carro_vermelho = Veiculo("carro", dir_vemelho)
+carro_azul     = Veiculo("carro", dir_amarelo)
+carro_preto    = Veiculo("carro", dir_preto)
+carro_verde    = Veiculo("carro", dir_verde)
+mota           = Veiculo("carro", dir_mota)
+ambulancia     = Veiculo("ambulance", dir_ambulancia)
+
 
 # Restrição para a área onde desenhar o tracejado
 def restricao(x):
-    tamanho_preto = (largura - (num_linhas*tamanho_espessura)) // num_linhas
+    tamanho_asfalto = (largura - (num_linhas*tamanho_espessura)) // num_linhas
     areas_excluidas = [False] * largura
 
     exclusoes = []
-    y = tamanho_espessura//2
+
+    y = tamanho_espessura // 2
     while y < largura:
         exclusoes.append(y)
-        y += tamanho_preto + tamanho_espessura
+        y += tamanho_asfalto + tamanho_espessura
 
     # Marca as áreas de exclusão
     for exclusao in exclusoes:
         inicio_exclusao = exclusao
-        fim_exclusao = exclusao + tamanho_preto
+        fim_exclusao    = exclusao + tamanho_asfalto
+
         for i in range(inicio_exclusao, fim_exclusao):
             if i < largura:
                 areas_excluidas[i] = True
 
     return areas_excluidas[x]
 
-# Desenha a linha tracejada na horizontal
+
 def desenha_linha_tracejada_horizontal(x, y, tamanho_tracejado):
     while x < largura:
         if restricao(x):
             pygame.draw.line(screen, Cores.BLACK, (x, y), (x + tamanho_tracejado, y), 2)
         x += tamanho_tracejado * 3
 
-# Desenha a linha tracejada na vertical
+
 def desenha_linha_tracejada_vertical(x, tamanho_tracejado):
     y=0
     while y < altura:
         pygame.draw.line(screen, Cores.BLACK, (x, y), (x, y + tamanho_tracejado), 2)
         y += tamanho_tracejado * 3
 
-# Desenha a estrada
+
 def desenha_estrada(cor):
     espessura_linha = largura // num_linhas
     for x in range(0, largura + 1, espessura_linha):
@@ -206,57 +201,50 @@ def baixo():
 
     return numeros_impares
 
+
 #Retorna uma lista com as coordenadas para todos os semaforos
 def calcula_coordenadas_semaforos():
-    tamanho_preto_ = (largura - (num_linhas * tamanho_espessura)) // num_linhas
-    tamanho_preto = tamanho_preto_ - 0.15 * tamanho_preto_
-    tamanho_preto = int(tamanho_preto)
+    aux_asfalto = (largura - (num_linhas * tamanho_espessura)) // num_linhas
+    tamanho_asfalto = int(aux_asfalto - 0.15 * aux_asfalto)
     coordenadas = []
 
-    for x in range(int(tamanho_espessura / 2.7), largura, tamanho_espessura + tamanho_preto_):
-        for y in range(int(tamanho_espessura / 2.2), largura, tamanho_espessura + tamanho_preto_):
-            x_cima = x
-            y_cima = y
-            x_baixo = x + tamanho_preto
-            y_baixo = y + tamanho_preto
-            x_direita = x
-            y_direita = y + tamanho_preto
-            x_esquerda = x + tamanho_preto
-            y_esquerda = y
-
-            coordenadas.append((x_cima, y_cima))
-            coordenadas.append((x_baixo, y_baixo))
-            coordenadas.append((x_direita, y_direita))
-            coordenadas.append((x_esquerda, y_esquerda))
+    for x in range(int(tamanho_espessura / 2.7), largura, tamanho_espessura + aux_asfalto):
+        for y in range(int(tamanho_espessura / 2.2), largura, tamanho_espessura + aux_asfalto):
+            # De cima para baixo: Coordenadas de cima, baixo, esquerda e direita
+            coordenadas.append((x, y))
+            coordenadas.append((x + tamanho_asfalto, y + tamanho_asfalto))
+            coordenadas.append((x, y + tamanho_asfalto))
+            coordenadas.append((x + tamanho_asfalto, y))
 
     coordenadas_ordenadas = sorted(coordenadas, key=lambda tupla: (tupla[1], tupla[0]))
+    
+    # (Perguntar o que isso faz)
     for i in esquerda():
         tupla = coordenadas_ordenadas[i]
         nova = list(tupla)
-        nova[1] -= 0.05*tamanho_preto
+        nova[1] -= 0.05*tamanho_asfalto
         coordenadas_ordenadas[i] = tuple(nova)
+
     for i in direita():
         tupla = coordenadas_ordenadas[i]
         nova = list(tupla)
-        nova[0] += 0.05*tamanho_preto
+        nova[0] += 0.05*tamanho_asfalto
         coordenadas_ordenadas[i] = tuple(nova)
+
     for i in baixo():
         tupla = coordenadas_ordenadas[i]
         nova = list(tupla)
-        nova[0] += 0.07*tamanho_preto
-        nova[1] -= 0.03*tamanho_preto
+        nova[0] += 0.07*tamanho_asfalto
+        nova[1] -= 0.03*tamanho_asfalto
         coordenadas_ordenadas[i] = tuple(nova)
+
     return coordenadas_ordenadas
+
 
 # Lista com todas as coordenadas dos semáforos
 coordenadas_semaforos = calcula_coordenadas_semaforos()
 
-def desenha_hospital():
-    tamanho_preto = (largura - (num_linhas*tamanho_espessura)) // num_linhas
-    for x in range(int(tamanho_espessura-0.2*tamanho_espessura), largura, tamanho_preto+tamanho_espessura):
-        screen.blit(hospital, (x, tamanho_espessura//4))
 
-#Desenha todos os semaforos
 def desenha_semaforos(semaforo):
     posicao = 0
     while posicao< len(coordenadas_semaforos):
@@ -271,6 +259,7 @@ def desenha_semaforos(semaforo):
             screen.blit(semaforo.direcao.baixo, (x, y))
         posicao +=1
 
+
 #Liga o semaforo da posicao pedida
 def liga_semaforo(posicao, semaforo):
     x,y = coordenadas_semaforos[posicao]
@@ -283,31 +272,30 @@ def liga_semaforo(posicao, semaforo):
     if posicao in baixo():
         screen.blit(semaforo.direcao.baixo, (x, y))
 
-#Desenha o carro no inicio da estrada pedida
+
+#Desenha o carro no inicio da estrada pedida (Perguntar como essa função funciona)
 def inicia_carro(carro):
-    tamanho_preto_ = (largura - (num_linhas*tamanho_espessura)) // num_linhas
-    tamanho_preto1 = tamanho_preto_ + 0.05*tamanho_preto_
-    tamanho_preto1 = int(tamanho_preto1)
-    tamanho_preto2 = tamanho_preto_ + 0.25*tamanho_preto_
-    tamanho_preto2 = int(tamanho_preto2)
-    tamanho_preto3 = tamanho_preto_ + 0.3*tamanho_preto_
-    tamanho_preto3 = int(tamanho_preto3)
-    tamanho_preto4 = tamanho_preto_ - 0.1*tamanho_preto_
-    tamanho_preto4 = int(tamanho_preto4)
+    aux_asfalto = (largura - (num_linhas*tamanho_espessura)) // num_linhas
+    tamanho_asfalto1 = int(aux_asfalto + 0.05*aux_asfalto)
+    tamanho_asfalto2 = int(aux_asfalto + 0.25*aux_asfalto)
+    tamanho_asfalto3 = int(aux_asfalto + 0.3*aux_asfalto)
+    tamanho_asfalto4 = int(aux_asfalto - 0.1*aux_asfalto) # Por que não está sendo utilizado?
+
     if carro.direcao == "cima":
-        carro.x = tamanho_espessura//10 + carro.estrada*(tamanho_espessura+tamanho_preto_)
+        carro.x = tamanho_espessura//10 + carro.estrada * (tamanho_espessura+aux_asfalto)
         carro.y = altura
     if carro.direcao == "esquerda":
         carro.x = largura
-        carro.y = tamanho_espessura//2 + tamanho_preto1 + carro.estrada*(tamanho_espessura+tamanho_preto_)
+        carro.y = tamanho_espessura//2 + tamanho_asfalto1 + carro.estrada * (tamanho_espessura+aux_asfalto)
     if carro.direcao == "direita":
         carro.x = -alt_carro
         estrada = carro.estrada
         estrada -= 1
-        carro.y = tamanho_espessura//2 + tamanho_preto3 + estrada*(tamanho_espessura+tamanho_preto_)
+        carro.y = tamanho_espessura//2 + tamanho_asfalto3 + estrada * (tamanho_espessura+aux_asfalto)
     if carro.direcao == "baixo":
-        carro.x = tamanho_espessura//10 + tamanho_preto2 + carro.estrada*(tamanho_espessura+tamanho_preto_)
+        carro.x = tamanho_espessura//10 + tamanho_asfalto2 + carro.estrada * (tamanho_espessura+aux_asfalto)
         carro.y = -alt_carro
+
 
 # Desenha o carro nas suas coordenadas
 def desenha_carro(carro):
@@ -319,6 +307,7 @@ def desenha_carro(carro):
         screen.blit(carro.carro.direcao.direita, (carro.x, carro.y))
     if carro.direcao == "baixo":
         screen.blit(carro.carro.direcao.baixo, (carro.x, carro.y))
+
 
 # Lista de coordenadas onde o carro encontra semáforos
 def paragem_carro(direcao):
@@ -345,28 +334,3 @@ def paragem_carro(direcao):
             coordenadas.add(int(x_coord+tamanho_semaforo//4))
     coordenadas_ordenadas = sorted(coordenadas)
     return coordenadas_ordenadas
-
-
-async def main():
-    # Configurações iniciais
-    pygame.init()
-    global screen
-    screen = pygame.display.set_mode((largura, altura))
-    pygame.display.set_caption("Controle de Tráfego")
-    # Limpar a tela
-    screen.fill(Cores.BLACK)
-
-    desenha_estrada(Cores.GREY)
-    desenha_semaforos(semaforo_cinza)
-    desenha_hospital()
-    pygame.display.update()
-
-    # Loop principal
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-
-if __name__ == "__main__":
-    spade.run(main())
