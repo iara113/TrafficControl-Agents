@@ -62,6 +62,14 @@ class CentralAgente(Agent):
                         lista_mudados.append(contrario2)
                 else:
                     mais_carros = semaforo_mais_carros(semaforo, oposto, contrario1, contrario2)
+                    if contrario1!=' ':
+                        jid_estrada, parte = estrada_semaforo(contrario1)
+                        if estrada_com_ambulancia(jid_estrada, parte):
+                            mais_carros = contrario1
+                    if contrario2!=' ':
+                        jid_estrada, parte = estrada_semaforo(contrario2)
+                        if estrada_com_ambulancia(jid_estrada, parte):
+                            mais_carros = contrario2
                     if mais_carros!="igual" and mais_carros.cor != Interface.semaforo_verde and semaforo not in lista_mudados:
                         intersecao = semaforos_intersecao(mais_carros)
                         oposto = intersecao[0]
