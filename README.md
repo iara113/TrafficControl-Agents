@@ -14,5 +14,3 @@ Após esses dois requisitos serem cumpridos, basta executar o seguinte comando:
 ```
 python3 Agentes.py
 ```
-
-(Colocar aqui bibliotecas usadas)
